@@ -1,0 +1,17 @@
+llama-index-core
+python-pptx
+pymilvus
+vanna
+chainlit
+pydantic
+openai
+python-dotenv
+uvicorn
+fastapi
+SQLAlchemy
+minio
+PyMySQL
+docling
+pandas
+huggingface-hub
+requests

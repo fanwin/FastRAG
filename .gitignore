@@ -1,0 +1,10 @@
+.chainlit/
+.files/
+.idea/
+chainlit_demo/
+demos/11.py
+demos/SQL.pdf
+persistent/*
+__pycache__/
+demos/
+rag_kernel/__pycache__/
