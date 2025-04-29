@@ -1,7 +1,6 @@
 import os
 import random
 from typing import List, Any
-
 import chainlit as cl
 import chainlit.data as cl_data
 from chainlit.element import ElementBased
@@ -9,13 +8,11 @@ from llama_index.core import Settings
 from llama_index.core.chat_engine.types import ChatMode, BaseChatEngine
 from llama_index.core.chat_engine import SimpleChatEngine
 from llama_index.core.memory import ChatMemoryBuffer
-
 from rag_kernel.document import DocumentRAGHandle
+from rag_kernel import sql_ui
 from utils import settings
-
 from persistent.minio_storage_client import MinioStorageClient
 from persistent.postgresql_data_layer import PostGreSQLDataLayer
-
 
 # storage_client = MinioStorageClient()
 # cl_data._data_layer = PostGreSQLDataLayer(conninfo=settings.configuration.pg_connection_string, storage_provider=storage_client)
@@ -36,19 +33,17 @@ async def view_pdf(elements: List[ElementBased]):
         return
     await cl.Message(content=f"查看PDF文件：" + "，".join(contents), elements=files).send()
 
-
 @cl.on_chat_start
 async def start():
     chat_engine = None
     chat_profile = cl.user_session.get("chat_profile")
-    if chat_profile == "普通对话" or chat_profile == "数据库对话" or chat_profile == "上传文件对话":
+    if chat_profile == "普通对话" or chat_profile == "上传文件对话" or chat_profile == "数据库对话":
         memory = ChatMemoryBuffer.from_defaults(token_limit=2048)
         chat_engine = SimpleChatEngine.from_defaults(memory=memory)
     elif chat_profile == "知识库问答":
         remote_index = DocumentRAGHandle.get_remote_rag_index(collection_name=chat_profile)
         chat_engine = remote_index.as_chat_engine(chat_mode=ChatMode.CONTEXT, similarity_top_k=15)
     cl.user_session.set("chat_engine", chat_engine)
-
 
 @cl.set_chat_profiles
 async def my_profiles():
@@ -66,7 +61,7 @@ async def my_profiles():
         ),
         cl.ChatProfile(
             name="数据库对话",
-            markdown_description="用自然语言和数据库对话",
+            markdown_description="用自然语言和数据库对话（text2SQL）",
             icon=f"/public/kbs/db.jpg"
         ),
         # cl.ChatProfile(
@@ -89,7 +84,6 @@ async def my_profiles():
     #     )
 
     return profiles
-
 
 # 装饰器on_message表示当用户发送消息时，会自动调用其装饰的异步函数，
 # 并传入一个chainlit.Message的对象message，表示用户发送的消息
@@ -116,7 +110,19 @@ async def main(message: cl.Message):
             cl.user_session.set("chat_engine", chat_engine)
     elif chat_mode == "知识库对话":
         pass
-        # index = rag = DocumentRAGHandle(file=files)
+    elif chat_mode == "数据库对话":      # text2SQL 技术
+        # await sql_ui.train()
+        sql = await sql_ui.generate_sql(message.content)
+        is_valid = await sql_ui.is_sql_valid(sql)
+        if is_valid:
+            df = await sql_ui.execute_query(sql)
+            await cl.Message(content=df.to_markdown(index=False), author="Assistant").send()
+            fig = await sql_ui.plot(human_query=message.content, sql=sql, data_frame=df)
+            elements = [cl.Plotly(name="chart", figure=fig, display="inline")]
+            await cl.Message(content="生成的图表如下：", elements=elements, author="Assistant").send()
+            return
+    else:
+        raise ValueError("不支持的聊天模式")
     # 获取聊天引擎
     chat_engine = cl.user_session.get("chat_engine")
     # 使用chainlit.make_async，把同步函数chat_engine.stream_chat转换为异步协程函数后，接收输入参数message.content，并返回一个生成器
@@ -128,22 +134,9 @@ async def main(message: cl.Message):
 
     # 如果当前对话是知识库对话，则显示数据来源
     await get_node_of_acknowledgement(chat_engine, msg, res)
-    # if not isinstance(chat_engine, SimpleChatEngine):
-    #     source_names = []
-    #     for idx, node_with_score in enumerate(res.source_nodes):
-    #         node = node_with_score.node
-    #         source_name = f"source_{idx}"
-    #         source_names.append(source_name)
-    #         msg.elements.append(
-    #             cl.Text(content=node.get_text(),
-    #                     name=source_name,
-    #                     display="side")
-    #         )
-    #     await msg.stream_token(f"\n\n **数据来源**: {', '.join(source_names)}")
 
     # 所有的token处理完成后，将助手msg详细发送到前端
     await msg.send()
-
 
 async def get_node_of_acknowledgement(chat_engine: BaseChatEngine, msg: cl.Message, res: Any):
     # 如果当前对话是知识库对话，则显示数据来源，显示个数和 similarity_top_k 个数一致

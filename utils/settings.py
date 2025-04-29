@@ -2,8 +2,7 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core import Settings
 from llama_index.llms.deepseek import DeepSeek as DeepSeekOpenAI
 from openai import OpenAI
-from pymilvus import MilvusClient
-
+from pymilvus import model
 from utils.config import Configuration
 
 configuration = Configuration()
@@ -50,6 +49,15 @@ def local_embedding_model():
 
     return embedding_model
 
+def pymilvus_bge_small_embedding_function(**kwargs):
+    return model.dense.SentenceTransformerEmbeddingFunction(
+        model_name=configuration.local_embedding_model_name,    # 'BAAI/bge-small-en-v1.5'
+        device='cpu',
+    )
+
+def openai_llm(**kwargs):
+    return OpenAI(api_key=configuration.llm_api_key,
+                  base_url=configuration.llm_api_base, **kwargs)
 
 # 设置全局配置
 # Settings.llm = local_llama_index_deepseek_llm()

@@ -1,7 +1,5 @@
 from pathlib import Path
-
 from openai import OpenAI
-
 from utils.settings import remote_moonshot_llm
 
 def extract_text_from_llm(file_path):

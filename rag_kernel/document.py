@@ -4,7 +4,7 @@ import os
 
 from llama_index.core import SimpleDirectoryReader, Document
 
-from rag_kernel import utils
+from rag_kernel import tools
 from rag_kernel.base import BaseRAG
 
 
@@ -14,7 +14,7 @@ class DocumentRAGHandle(BaseRAG):
         for file in self.files:
             # 对图片及文档通过 Moonshot大 模型进行OCR识别
             # TODO 改造成离线识别，使用本地的OCR工具
-            contents = utils.extract_text_from_llm(file)
+            contents = tools.extract_text_from_llm(file)
             temp_file = datetime.now().strftime("%Y%m%d%H%M%S") + ".txt"
             with open(temp_file, "w", encoding="utf-8") as f:
                 f.write(contents)
